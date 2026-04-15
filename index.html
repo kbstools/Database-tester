@@ -459,58 +459,51 @@
         let serverTime = null;
         let timeZone = "PHT";
         let isServerTimeSynced = false;
+        let serverTimeOffset = 0;
 
-        async function fetchServerTime(lat, lng) {
+        async function fetchFirebaseServerTime() {
             try {
-                // Try WorldTimeAPI first
-                const res = await fetch(`https://worldtimeapi.org/api/ip`, { timeout: 5000 });
-                const data = await res.json();
-                serverTime = new Date(data.datetime);
-                timeZone = data.abbreviation || 'PHT';
-                isServerTimeSynced = true;
-                status.innerText = "Time Synced from Server";
-                return serverTime;
+                // Use Firebase server timestamp - this is server-side and cannot be manipulated
+                const ref = database.ref('.info/serverTimeOffset');
+                return new Promise((resolve) => {
+                    ref.once('value', (snapshot) => {
+                        serverTimeOffset = snapshot.val() || 0;
+                        serverTime = new Date(Date.now() + serverTimeOffset);
+                        isServerTimeSynced = true;
+                        timeZone = 'PHT';
+                        status.innerText = "Server Time Synced";
+                        resolve(serverTime);
+                    }, () => {
+                        // Fallback if Firebase server time fails
+                        serverTime = new Date();
+                        isServerTimeSynced = false;
+                        resolve(serverTime);
+                    });
+                });
             } catch (e) {
-                console.log("WorldTimeAPI failed, trying fallback...");
-            }
-            
-            // Fallback: Use a simple timestamp API
-            try {
-                const res = await fetch(`https://worldtimeapi.org/api/timezone/Asia/Manila`, { timeout: 5000 });
-                const data = await res.json();
-                serverTime = new Date(data.datetime);
-                timeZone = 'PHT';
-                isServerTimeSynced = true;
-                status.innerText = "Time Synced (PH)";
+                serverTime = new Date();
+                isServerTimeSynced = false;
                 return serverTime;
-            } catch (e2) {
-                console.log("Fallback also failed, using GPS-derived time...");
             }
-            
-            // Last fallback: Use browser time but sync with GPS location time
-            serverTime = new Date();
-            isServerTimeSynced = false;
-            status.innerText = "Using local time (GPS synced)";
-            return serverTime;
         }
 
         function updateTime() {
             if (!serverTime) {
-                serverTime = new Date();
+                serverTime = new Date(Date.now() + serverTimeOffset);
             }
             
-            serverTime.setSeconds(serverTime.getSeconds() + 1);
+            const now = new Date(Date.now() + serverTimeOffset);
             
-            const h = serverTime.getHours();
-            const m = serverTime.getMinutes();
-            const s = serverTime.getSeconds();
+            const h = now.getHours();
+            const m = now.getMinutes();
+            const s = now.getSeconds();
             const ampm = h >= 12 ? 'PM' : 'AM';
             const hour12 = h % 12 || 12;
             const timeStr = `${hour12}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')} ${ampm}`;
             
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const dateStr = `${days[serverTime.getDay()]}, ${months[serverTime.getMonth()]} ${serverTime.getDate()}, ${serverTime.getFullYear()}`;
+            const dateStr = `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
             
             timeBadge.textContent = timeStr;
             dateDisplay.textContent = dateStr + ' ' + timeZone;
@@ -563,10 +556,6 @@
                         const data = await res.json();
                         fullAddress = data.display_name;
                         addressDisplay.textContent = fullAddress.split(',').slice(0, 4).join(', ');
-                        
-                        if (!isServerTimeSynced) {
-                            await fetchServerTime(lat, lng);
-                        }
                         status.innerText = "GPS & Camera Ready";
                     } catch (e) { 
                         fullAddress = currentGPS;
@@ -579,8 +568,8 @@
         updateTime();
         setInterval(updateTime, 1000);
 
-        // Start fetching server time immediately
-        fetchServerTime(null, null);
+        // Start fetching Firebase server time immediately
+        fetchFirebaseServerTime();
 
         captureBtn.addEventListener('click', async () => {
             const branch = document.getElementById('branchSelect').value;
@@ -602,7 +591,7 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0);
 
-            const now = serverTime || new Date();
+            const now = new Date(Date.now() + serverTimeOffset);
             const h = now.getHours();
             const m = now.getMinutes();
             const s = now.getSeconds();
