@@ -519,12 +519,23 @@
         });
 
         document.querySelectorAll('.zoom-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 document.querySelectorAll('.zoom-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                const zoom = btn.dataset.zoom;
-                zoomIndicator.textContent = zoom.includes('x') ? zoom : zoom + 'x';
-                currentZoom = parseFloat(zoom);
+                const zoom = parseFloat(btn.dataset.zoom);
+                zoomIndicator.textContent = btn.dataset.zoom.includes('x') ? btn.dataset.zoom : btn.dataset.zoom + 'x';
+                currentZoom = zoom;
+                
+                if (stream) {
+                    const track = stream.getVideoTracks()[0];
+                    try {
+                        await track.applyConstraints({
+                            advanced: [{ zoom: zoom }]
+                        });
+                    } catch (e) {
+                        console.log("Zoom not supported on this device");
+                    }
+                }
             });
         });
 
