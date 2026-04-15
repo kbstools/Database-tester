@@ -45,6 +45,28 @@
 
         .header-spacer { width: 44px; }
 
+        .mode-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .mode-btn {
+            padding: 6px 10px;
+            border-radius: 15px;
+            border: none;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            background: #e0e0e0;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background: #FFC107;
+            color: #000;
+        }
+
         /* Camera Container */
         .camera-container {
             flex: 1;
@@ -338,7 +360,12 @@
     <!-- Header Bar -->
     <div class="header-bar">
         <div class="flash-toggle" id="flashBtn">&#9724;</div>
-        <span style="font-weight:600;color:#333;font-size:14px;">Verified Time Cam</span>
+        <div class="mode-buttons">
+            <button class="mode-btn active" data-mode="CLOCK IN">CLOCK IN</button>
+            <button class="mode-btn" data-mode="CLOCK OUT">CLOCK OUT</button>
+            <button class="mode-btn" data-mode="BREAK IN">BREAK IN</button>
+            <button class="mode-btn" data-mode="BREAK OUT">BREAK OUT</button>
+        </div>
         <div class="header-spacer"></div>
     </div>
 
@@ -377,12 +404,6 @@
 
     <!-- Controls -->
     <div class="controls-container">
-        <div class="mode-tabs">
-            <button class="mode-tab active" data-mode="clock">TIME IN&OUT</button>
-            <button class="mode-tab" data-mode="break">BREAK IN&OUT</button>
-            <div class="tab-indicator" id="tabIndicator"></div>
-        </div>
-
         <div class="input-group">
             <select id="branchSelect">
                 <option value="">-- Select Branch --</option>
@@ -444,20 +465,12 @@
             dateDisplay.textContent = dateStr;
         }
 
-        function updateTabIndicator() {
-            const activeTab = document.querySelector('.mode-tab.active');
-            const rect = activeTab.getBoundingClientRect();
-            const containerRect = document.querySelector('.mode-tabs').getBoundingClientRect();
-            const indicator = document.getElementById('tabIndicator');
-            indicator.style.left = (rect.left - containerRect.left + rect.width / 2 - 15) + 'px';
-        }
-
-        document.querySelectorAll('.mode-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                currentMode = tab.dataset.mode;
-                updateTabIndicator();
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentClockMode = btn.dataset.mode;
+                modeBadge.textContent = currentClockMode;
             });
         });
 
@@ -597,8 +610,6 @@
         });
 
         startSystem();
-
-        window.addEventListener('resize', updateTabIndicator);
     </script>
 </body>
 </html>
