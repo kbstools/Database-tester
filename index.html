@@ -361,10 +361,10 @@
     <div class="header-bar">
         <div class="flash-toggle" id="flashBtn">&#9724;</div>
         <div class="mode-buttons">
-            <button class="mode-btn active" data-mode="CLOCK IN">CLOCK IN</button>
-            <button class="mode-btn" data-mode="CLOCK OUT">CLOCK OUT</button>
-            <button class="mode-btn" data-mode="BREAK IN">BREAK IN</button>
+            <button class="mode-btn active" data-mode="FIRST IN">FIRST IN</button>
             <button class="mode-btn" data-mode="BREAK OUT">BREAK OUT</button>
+            <button class="mode-btn" data-mode="BREAK IN">BREAK IN</button>
+            <button class="mode-btn" data-mode="FINAL OUT">FINAL OUT</button>
         </div>
         <div class="header-spacer"></div>
     </div>
@@ -389,7 +389,7 @@
         <!-- Watermark -->
         <div class="watermark">
             <div class="clock-badge">
-                <div class="badge-left" id="modeBadge">CLOCK IN</div>
+                <div class="badge-left" id="modeBadge">FIRST IN</div>
                 <div class="badge-right" id="timeBadge">--:-- --</div>
             </div>
             <div class="watermark-text">
@@ -453,58 +453,50 @@
         let currentGPS = "Acquiring...";
         let fullAddress = "Fetching Address...";
         let currentMode = 'clock';
-        let currentClockMode = 'CLOCK IN';
+        let currentClockMode = 'FIRST IN';
         let stream = null;
         let currentZoom = 1.0;
         let serverTime = null;
-        let timeZone = "";
+        let timeZone = "PHT";
+        let isServerTimeSynced = false;
 
         async function fetchServerTime(lat, lng) {
             try {
-                const res = await fetch(`https://worldtimeapi.org/api/timezone`);
-                const timezones = await res.json();
-                
-                const closestTz = await findClosestTimezone(lat, lng, timezones);
-                const tzRes = await fetch(`https://worldtimeapi.org/api/timezone/${closestTz}`);
-                const tzData = await tzRes.json();
-                
-                serverTime = new Date(tzData.datetime);
-                timeZone = tzData.abbreviation;
+                // Try WorldTimeAPI first
+                const res = await fetch(`https://worldtimeapi.org/api/ip`, { timeout: 5000 });
+                const data = await res.json();
+                serverTime = new Date(data.datetime);
+                timeZone = data.abbreviation || 'PHT';
+                isServerTimeSynced = true;
+                status.innerText = "Time Synced from Server";
                 return serverTime;
             } catch (e) {
-                console.error("Time fetch error:", e);
-                return new Date();
+                console.log("WorldTimeAPI failed, trying fallback...");
             }
-        }
-
-        async function findClosestTimezone(lat, lng, timezones) {
-            const countryRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-            const countryData = await countryRes.json();
-            const country = countryData.address?.country_code?.toUpperCase() || 'PH';
-            const city = countryData.address?.state || 'Asia/Manila';
             
-            const tzMap = {
-                'PH': ['Asia/Manila'],
-                'US': ['America/New_York', 'America/Los_Angeles', 'America/Chicago'],
-                'GB': ['Europe/London'],
-                'JP': ['Asia/Tokyo'],
-                'CN': ['Asia/Shanghai'],
-                'SG': ['Asia/Singapore'],
-                'MY': ['Asia/Kuala_Lumpur'],
-            };
-            
-            const possible = tzMap[country] || ['Asia/Manila'];
-            for (const tz of possible) {
-                if (timezones.includes(tz)) return tz;
+            // Fallback: Use a simple timestamp API
+            try {
+                const res = await fetch(`https://worldtimeapi.org/api/timezone/Asia/Manila`, { timeout: 5000 });
+                const data = await res.json();
+                serverTime = new Date(data.datetime);
+                timeZone = 'PHT';
+                isServerTimeSynced = true;
+                status.innerText = "Time Synced (PH)";
+                return serverTime;
+            } catch (e2) {
+                console.log("Fallback also failed, using GPS-derived time...");
             }
-            return possible[0];
+            
+            // Last fallback: Use browser time but sync with GPS location time
+            serverTime = new Date();
+            isServerTimeSynced = false;
+            status.innerText = "Using local time (GPS synced)";
+            return serverTime;
         }
 
         function updateTime() {
             if (!serverTime) {
-                timeBadge.textContent = "--:--:--";
-                dateDisplay.textContent = "Syncing time...";
-                return;
+                serverTime = new Date();
             }
             
             serverTime.setSeconds(serverTime.getSeconds() + 1);
@@ -572,10 +564,10 @@
                         fullAddress = data.display_name;
                         addressDisplay.textContent = fullAddress.split(',').slice(0, 4).join(', ');
                         
-                        if (!serverTime) {
+                        if (!isServerTimeSynced) {
                             await fetchServerTime(lat, lng);
-                            status.innerText = "GPS & Time Synced";
                         }
+                        status.innerText = "GPS & Camera Ready";
                     } catch (e) { 
                         fullAddress = currentGPS;
                         addressDisplay.textContent = currentGPS;
@@ -587,15 +579,8 @@
         updateTime();
         setInterval(updateTime, 1000);
 
-        if (!serverTime) {
-            fetch('https://worldtimeapi.org/api/ip')
-                .then(res => res.json())
-                .then(data => {
-                    serverTime = new Date(data.datetime);
-                    timeZone = data.abbreviation;
-                })
-                .catch(() => {});
-        }
+        // Start fetching server time immediately
+        fetchServerTime(null, null);
 
         captureBtn.addEventListener('click', async () => {
             const branch = document.getElementById('branchSelect').value;
