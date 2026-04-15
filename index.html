@@ -401,27 +401,21 @@
 
     <canvas class="canvas" id="canvas"></canvas>
 
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
     <script>
-        const { initializeApp } = firebase;
-        const { getStorage, ref: sRef, uploadString, getDownloadURL } = firebase.storage;
-        const { getDatabase, ref: dRef, set } = firebase.database;
-
-        const firebaseConfig = {
+        const app = firebase.initializeApp({
             apiKey: "AIzaSyA9P-8cAkJOPKCMoDKvQfIOPRRj6sU2rIk",
             authDomain: "kingsbakeshopdatabase.firebaseapp.com",
             projectId: "kingsbakeshopdatabase",
             storageBucket: "kingsbakeshopdatabase.firebasestorage.app",
             databaseURL: "https://kingsbakeshopdatabase-default-rtdb.firebaseio.com",
             appId: "1:256940044664:web:abb651add27a4445ed188d"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const storage = getStorage(app);
-        const database = getDatabase(app);
+        });
+        const storage = firebase.storage();
+        const database = firebase.database();
 
         const video = document.getElementById('viewfinder');
         const canvas = document.getElementById('canvas');
@@ -576,11 +570,11 @@
                 const timestamp = Date.now();
                 const fileName = `Records/${branch}/${empName}_${timestamp}.jpg`;
                 
-                const storageRef = sRef(storage, fileName);
-                const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
-                const downloadURL = await getDownloadURL(snapshot.ref);
+                const storageRef = storage.ref(fileName);
+                const snapshot = await storageRef.putString(dataUrl, 'data_url');
+                const downloadURL = await snapshot.ref.getDownloadURL();
 
-                await set(dRef(database, 'Logs/' + timestamp), {
+                await database.ref('Logs/' + timestamp).set({
                     employee: empName,
                     branch: branch,
                     mode: currentClockMode,
