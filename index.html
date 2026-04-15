@@ -71,9 +71,20 @@
             color: #000;
         }
 
-        .header-spacer {
-            width: 36px;
-            flex-shrink: 0;
+        .watermark-modes {
+            margin-top: 12px;
+        }
+
+        .watermark-modes .mode-btn {
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            font-size: 11px;
+            padding: 6px 10px;
+        }
+
+        .watermark-modes .mode-btn.active {
+            background: #FFC107;
+            color: #000;
         }
 
         /* Camera Container */
@@ -370,12 +381,6 @@
     <!-- Header Bar -->
     <div class="header-bar">
         <div class="flash-toggle" id="flashBtn">&#9724;</div>
-        <div class="mode-buttons">
-            <button class="mode-btn active" data-mode="FIRST IN">FIRST IN</button>
-            <button class="mode-btn" data-mode="BREAK OUT">BREAK OUT</button>
-            <button class="mode-btn" data-mode="BREAK IN">BREAK IN</button>
-            <button class="mode-btn" data-mode="FINAL OUT">FINAL OUT</button>
-        </div>
         <div class="header-spacer"></div>
     </div>
 
@@ -405,6 +410,12 @@
             <div class="watermark-text">
                 <div class="watermark-date" id="dateDisplay">---</div>
                 <div class="watermark-address" id="addressDisplay">---</div>
+            </div>
+            <div class="mode-buttons watermark-modes">
+                <button class="mode-btn active" data-mode="FIRST IN">FIRST IN</button>
+                <button class="mode-btn" data-mode="BREAK OUT">BREAK OUT</button>
+                <button class="mode-btn" data-mode="BREAK IN">BREAK IN</button>
+                <button class="mode-btn" data-mode="FINAL OUT">FINAL OUT</button>
             </div>
         </div>
     </div>
