@@ -361,10 +361,10 @@
     <div class="header-bar">
         <div class="flash-toggle" id="flashBtn">&#9724;</div>
         <div class="mode-buttons">
-            <button class="mode-btn active" data-mode="FIRST IN">FIRST IN</button>
-            <button class="mode-btn" data-mode="BREAK OUT">BREAK OUT</button>
+            <button class="mode-btn active" data-mode="CLOCK IN">CLOCK IN</button>
+            <button class="mode-btn" data-mode="CLOCK OUT">CLOCK OUT</button>
             <button class="mode-btn" data-mode="BREAK IN">BREAK IN</button>
-            <button class="mode-btn" data-mode="FINAL OUT">FINAL OUT</button>
+            <button class="mode-btn" data-mode="BREAK OUT">BREAK OUT</button>
         </div>
         <div class="header-spacer"></div>
     </div>
@@ -389,7 +389,7 @@
         <!-- Watermark -->
         <div class="watermark">
             <div class="clock-badge">
-                <div class="badge-left" id="modeBadge">FIRST IN</div>
+                <div class="badge-left" id="modeBadge">CLOCK IN</div>
                 <div class="badge-right" id="timeBadge">--:-- --</div>
             </div>
             <div class="watermark-text">
@@ -453,16 +453,75 @@
         let currentGPS = "Acquiring...";
         let fullAddress = "Fetching Address...";
         let currentMode = 'clock';
-        let currentClockMode = 'FIRST IN';
+        let currentClockMode = 'CLOCK IN';
         let stream = null;
         let currentZoom = 1.0;
+        let serverTime = null;
+        let timeZone = "";
+
+        async function fetchServerTime(lat, lng) {
+            try {
+                const res = await fetch(`https://worldtimeapi.org/api/timezone`);
+                const timezones = await res.json();
+                
+                const closestTz = await findClosestTimezone(lat, lng, timezones);
+                const tzRes = await fetch(`https://worldtimeapi.org/api/timezone/${closestTz}`);
+                const tzData = await tzRes.json();
+                
+                serverTime = new Date(tzData.datetime);
+                timeZone = tzData.abbreviation;
+                return serverTime;
+            } catch (e) {
+                console.error("Time fetch error:", e);
+                return new Date();
+            }
+        }
+
+        async function findClosestTimezone(lat, lng, timezones) {
+            const countryRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            const countryData = await countryRes.json();
+            const country = countryData.address?.country_code?.toUpperCase() || 'PH';
+            const city = countryData.address?.state || 'Asia/Manila';
+            
+            const tzMap = {
+                'PH': ['Asia/Manila'],
+                'US': ['America/New_York', 'America/Los_Angeles', 'America/Chicago'],
+                'GB': ['Europe/London'],
+                'JP': ['Asia/Tokyo'],
+                'CN': ['Asia/Shanghai'],
+                'SG': ['Asia/Singapore'],
+                'MY': ['Asia/Kuala_Lumpur'],
+            };
+            
+            const possible = tzMap[country] || ['Asia/Manila'];
+            for (const tz of possible) {
+                if (timezones.includes(tz)) return tz;
+            }
+            return possible[0];
+        }
 
         function updateTime() {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-            const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            if (!serverTime) {
+                timeBadge.textContent = "--:--:--";
+                dateDisplay.textContent = "Syncing time...";
+                return;
+            }
+            
+            serverTime.setSeconds(serverTime.getSeconds() + 1);
+            
+            const h = serverTime.getHours();
+            const m = serverTime.getMinutes();
+            const s = serverTime.getSeconds();
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const hour12 = h % 12 || 12;
+            const timeStr = `${hour12}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')} ${ampm}`;
+            
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const dateStr = `${days[serverTime.getDay()]}, ${months[serverTime.getMonth()]} ${serverTime.getDate()}, ${serverTime.getFullYear()}`;
+            
             timeBadge.textContent = timeStr;
-            dateDisplay.textContent = dateStr;
+            dateDisplay.textContent = dateStr + ' ' + timeZone;
         }
 
         document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -512,7 +571,11 @@
                         const data = await res.json();
                         fullAddress = data.display_name;
                         addressDisplay.textContent = fullAddress.split(',').slice(0, 4).join(', ');
-                        status.innerText = "GPS & Camera Ready";
+                        
+                        if (!serverTime) {
+                            await fetchServerTime(lat, lng);
+                            status.innerText = "GPS & Time Synced";
+                        }
                     } catch (e) { 
                         fullAddress = currentGPS;
                         addressDisplay.textContent = currentGPS;
@@ -523,6 +586,16 @@
 
         updateTime();
         setInterval(updateTime, 1000);
+
+        if (!serverTime) {
+            fetch('https://worldtimeapi.org/api/ip')
+                .then(res => res.json())
+                .then(data => {
+                    serverTime = new Date(data.datetime);
+                    timeZone = data.abbreviation;
+                })
+                .catch(() => {});
+        }
 
         captureBtn.addEventListener('click', async () => {
             const branch = document.getElementById('branchSelect').value;
@@ -544,9 +617,17 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0);
 
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-            const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            const now = serverTime || new Date();
+            const h = now.getHours();
+            const m = now.getMinutes();
+            const s = now.getSeconds();
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const hour12 = h % 12 || 12;
+            const timeStr = `${hour12}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')} ${ampm}`;
+            
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const dateStr = `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
             
             const margin = 40;
             const baseY = canvas.height - 80;
@@ -591,6 +672,8 @@
                     branch: branch,
                     mode: currentClockMode,
                     time: now.toISOString(),
+                    timezone: timeZone,
+                    gpsCoords: currentGPS,
                     address: fullAddress,
                     imageUrl: downloadURL
                 });
