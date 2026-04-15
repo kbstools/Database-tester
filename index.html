@@ -1,108 +1,19 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Verified Time Cam</title>
-    <style>
-        * { box-sizing: border-box; font-family: -apple-system, sans-serif; }
-        body { background: #000; margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        
-        #viewfinder { width: 100%; flex: 1; object-fit: cover; background: #000; }
-
-        .ui-container { background: white; padding: 15px; padding-bottom: env(safe-area-inset-bottom); border-top-left-radius: 20px; border-top-right-radius: 20px; }
-
-        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
-        input, select { 
-            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; outline: none;
-        }
-        input:focus { border-color: #ff6600; }
-
-        .shutter-row { display: flex; align-items: center; justify-content: center; padding: 10px 0; }
-        .shutter-btn {
-            width: 70px; height: 70px; border-radius: 50%; border: 5px solid #ddd;
-            background: white; cursor: pointer; display: flex; align-items: center; justify-content: center;
-        }
-        .shutter-btn:active { transform: scale(0.9); background: #eee; }
-        .shutter-inner { width: 50px; height: 50px; border-radius: 50%; background: #333; }
-
-        #status { position: absolute; top: 20px; width: 100%; text-align: center; color: white; font-size: 12px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 10; }
-        #canvas { display: none; }
-    </style>
-</head>
-<body>
-
-    <div id="status">Waiting for GPS/Camera...</div>
-    <video id="viewfinder" autoplay playsinline muted></video>
-
-    <div class="ui-container">
-        <div class="input-group">
-            <select id="branchSelect">
-                <option value="">-- Select Branch --</option>
-                <option value="Tondo-Main">Tondo Main</option>
-                <option value="Masangkay">Masangkay</option>
-            </select>
-            <input type="text" id="employeeName" placeholder="Enter Employee Name" autocomplete="off">
-        </div>
-
-        <div class="shutter-row">
-            <div class="shutter-btn" id="capture-btn">
-                <div class="shutter-inner"></div>
-            </div>
-        </div>
-    </div>
-
-    <canvas id="canvas"></canvas>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getStorage, ref as sRef, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-        import { getDatabase, ref as dRef, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyA9P-8cAkJOPKCMoDKvQfIOPRRj6sU2rIk",
-            authDomain: "kingsbakeshopdatabase.firebaseapp.com",
-            projectId: "kingsbakeshopdatabase",
-            storageBucket: "kingsbakeshopdatabase.firebasestorage.app",
-            databaseURL: "https://kingsbakeshopdatabase-default-rtdb.firebaseio.com",
-            appId: "1:256940044664:web:abb651add27a4445ed188d"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const storage = getStorage(app);
-        const database = getDatabase(app);
-
-        const video = document.getElementById('viewfinder');
-        const canvas = document.getElementById('canvas');
-        const status = document.getElementById('status');
-        const captureBtn = document.getElementById('capture-btn');
-        
-        let currentGPS = "Acquiring...";
-        let fullAddress = "Fetching Address...";
-
-        // 1. Initialize Camera & GPS
-        async function startSystem() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                video.srcObject = stream;
-                
-                navigator.geolocation.watchPosition(async (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    currentGPS = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-                    
-                    // Reverse Geocode
-                    try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
                         const data = await res.json();
                         fullAddress = data.display_name;
+                        addressDisplay.textContent = fullAddress.split(',').slice(0, 4).join(', ');
                         status.innerText = "GPS & Camera Ready";
-                    } catch (e) { fullAddress = currentGPS; }
+                    } catch (e) { 
+                        fullAddress = currentGPS;
+                        addressDisplay.textContent = currentGPS;
+                    }
                 }, (err) => { status.innerText = "GPS Error: Please enable location"; });
             } catch (e) { status.innerText = "Camera Error: Please allow access"; }
         }
 
-        // 2. Capture and Stamp
+        updateTime();
+        setInterval(updateTime, 1000);
+        setTimeout(updateTabIndicator, 100);
+
         captureBtn.addEventListener('click', async () => {
             const branch = document.getElementById('branchSelect').value;
             const empName = document.getElementById('employeeName').value;
@@ -113,15 +24,16 @@
             }
 
             status.innerText = "Processing...";
-            captureBtn.style.opacity = "0.5";
-            captureBtn.style.pointerEvents = "none";
+            captureBtn.disabled = true;
+
+            flashOverlay.classList.add('active');
+            setTimeout(() => flashOverlay.classList.remove('active'), 150);
 
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0);
 
-            // Watermark Styling
             const now = new Date();
             const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
             const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
@@ -129,69 +41,66 @@
             const margin = 40;
             const baseY = canvas.height - 80;
 
-            // Clock-In Badge (Yellow & White)
             ctx.fillStyle = "#FFC107";
-            ctx.fillRect(margin, baseY - 160, 160, 60);
+            ctx.fillRect(margin, baseY - 160, 150, 50);
             ctx.fillStyle = "white";
-            ctx.fillRect(margin + 160, baseY - 160, 180, 60);
+            ctx.fillRect(margin + 150, baseY - 160, 170, 50);
             
-            ctx.font = "bold 30px Arial";
+            ctx.font = "bold 24px Arial";
             ctx.fillStyle = "black";
-            ctx.fillText("CLOCK IN", margin + 15, baseY - 118);
-            ctx.fillText(timeStr, margin + 175, baseY - 118);
+            ctx.fillText(currentClockMode, margin + 12, baseY - 122);
+            ctx.fillStyle = "#333";
+            ctx.fillText(timeStr, margin + 160, baseY - 122);
 
-            // Employee Name, Date, and Address
-            ctx.shadowColor = "black"; ctx.shadowBlur = 8;
+            ctx.shadowColor = "black";
+            ctx.shadowBlur = 8;
             ctx.fillStyle = "white";
             
-            ctx.font = "bold 34px Arial";
-            ctx.fillText(`EMPLOYEE: ${empName.toUpperCase()}`, margin, baseY - 50);
+            ctx.font = "bold 28px Arial";
+            ctx.fillText(`EMPLOYEE: ${empName.toUpperCase()}`, margin, baseY - 55);
             
-            ctx.font = "30px Arial";
-            ctx.fillText(dateStr, margin, baseY);
+            ctx.font = "22px Arial";
+            ctx.fillText(dateStr, margin, baseY - 5);
 
-            ctx.font = "24px Arial";
-            // Simple text wrapping for address
+            ctx.font = "18px Arial";
             const addrParts = fullAddress.split(',');
-            ctx.fillText(addrParts.slice(0, 3).join(','), margin, baseY + 40);
-            ctx.fillText(addrParts.slice(3, 6).join(','), margin, baseY + 75);
+            ctx.fillText(addrParts.slice(0, 3).join(','), margin, baseY + 30);
+            ctx.fillText(addrParts.slice(3, 6).join(','), margin, baseY + 60);
 
-            // 3. Upload to Firebase
             try {
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
                 const timestamp = Date.now();
                 const fileName = `Records/${branch}/${empName}_${timestamp}.jpg`;
                 
-                // Upload Image
                 const storageRef = sRef(storage, fileName);
                 const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
                 const downloadURL = await getDownloadURL(snapshot.ref);
 
-                // Save Database Record
                 await set(dRef(database, 'Logs/' + timestamp), {
                     employee: empName,
                     branch: branch,
+                    mode: currentClockMode,
                     time: now.toISOString(),
                     address: fullAddress,
                     imageUrl: downloadURL
                 });
 
-                status.innerText = "✅ Successfully Synced!";
+                status.innerText = "Successfully Synced!";
                 setTimeout(() => {
                     status.innerText = "Ready";
-                    captureBtn.style.opacity = "1";
-                    captureBtn.style.pointerEvents = "auto";
+                    captureBtn.disabled = false;
                 }, 3000);
 
             } catch (err) {
                 console.error(err);
                 status.innerText = "Sync Error: Check Connection";
-                captureBtn.style.opacity = "1";
-                captureBtn.style.pointerEvents = "auto";
+                captureBtn.disabled = false;
             }
         });
 
         startSystem();
+
+        window.addEventListener('resize', updateTabIndicator);
     </script>
 </body>
 </html>
