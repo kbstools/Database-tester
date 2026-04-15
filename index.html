@@ -1,3 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verified Time Cam</title>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 0; }
+        
+        body { 
+            background: #000; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            overflow: hidden; 
+            position: relative;
+        }
+
+        /* Header Bar */
+        .header-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 20;
+        }
+
+        .flash-toggle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        .header-spacer { width: 44px; }
+
+        /* Camera Container */
+        .camera-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+        }
+
+        #viewfinder { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
+
+        /* Zoom Indicator - Center */
+        .zoom-indicator {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 10;
+        }
+
+        /* Zoom Controls - Right Side */
+        .zoom-controls {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .zoom-btn.active {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .zoom-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #e74c3c;
+            color: white;
+            font-size: 10px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Watermark - Bottom Left */
+        .watermark {
+            position: absolute;
+            bottom: 120px;
+            left: 15px;
+            z-index: 10;
+        }
+
+        .clock-badge {
+            display: flex;
+            align-items: center;
+            border-radius: 30px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            margin-bottom: 12px;
+        }
+
+        .badge-left {
+            background: #FFC107;
+            padding: 8px 16px;
+            font-weight: bold;
+            font-size: 14px;
+            color: #000;
+        }
+
+        .badge-right {
+            background: white;
+            padding: 8px 16px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .watermark-text {
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.7);
+        }
+
+        .watermark-date {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .watermark-address {
+            font-size: 13px;
+            line-height: 1.4;
+            max-width: 280px;
+        }
+
+        /* Status Bar */
+        #status {
+            position: absolute;
+            top: 70px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 12px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        /* Light Blue Separator */
+        .separator-bar {
+            height: 4px;
+            background: #5dade2;
+        }
+
+        /* Controls Section */
+        .controls-container {
+            background: white;
+            padding: 20px;
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+        }
+
+        .input-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+            margin-bottom: 15px; 
+        }
+
+        select, input { 
+            width: 100%; 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid #ddd; 
+            font-size: 14px; 
+            outline: none;
+        }
+        input:focus, select:focus { border-color: #5dade2; }
+
+        .shutter-row { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 10px 0 15px; 
+        }
+
+        .shutter-btn {
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            border: 6px solid white;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 0 3px #ddd, 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .shutter-btn:active { transform: scale(0.95); }
+        .shutter-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .shutter-inner {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            background: #333;
+        }
+
+        /* Mode Selector */
+        .mode-selector {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            padding: 10px 0;
+            position: relative;
+        }
+
+        .mode-item {
+            font-size: 14px;
+            color: #999;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 5px 10px;
+        }
+
+        .mode-item.active {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .mode-dot {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #5dade2;
+            transition: left 0.3s ease;
+        }
+
+        /* Mode Selector Tabs */
+        .mode-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding-bottom: 5px;
+            position: relative;
+        }
+
+        .mode-tab {
+            font-size: 15px;
+            color: #aaa;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 8px 4px;
+            border: none;
+            background: none;
+        }
+
+        .mode-tab.active {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .tab-indicator {
+            position: absolute;
+            bottom: 0;
+            width: 30px;
+            height: 3px;
+            background: #5dade2;
+            border-radius: 2px;
+            transition: left 0.3s ease;
+        }
+
+        .canvas { display: none; }
+
+        /* Flash on capture */
+        .flash-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+            transition: opacity 0.1s;
+        }
+
+        .flash-overlay.active {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="flash-overlay" id="flashOverlay"></div>
+
+    <!-- Header Bar -->
+    <div class="header-bar">
+        <div class="flash-toggle" id="flashBtn">&#9724;</div>
+        <span style="font-weight:600;color:#333;font-size:14px;">Verified Time Cam</span>
+        <div class="header-spacer"></div>
+    </div>
+
+    <div id="status">Waiting for GPS/Camera...</div>
+
+    <!-- Camera View -->
+    <div class="camera-container">
+        <video id="viewfinder" autoplay playsinline muted></video>
+
+        <div class="zoom-indicator" id="zoomIndicator">1x</div>
+
+        <div class="zoom-controls">
+            <button class="zoom-btn" data-zoom="0.6">0.6x</button>
+            <button class="zoom-btn active" data-zoom="1.0">1.0x</button>
+            <button class="zoom-btn" data-zoom="2">
+                2x
+                <span class="zoom-badge">2</span>
+            </button>
+        </div>
+
+        <!-- Watermark -->
+        <div class="watermark">
+            <div class="clock-badge">
+                <div class="badge-left" id="modeBadge">CLOCK IN</div>
+                <div class="badge-right" id="timeBadge">--:-- --</div>
+            </div>
+            <div class="watermark-text">
+                <div class="watermark-date" id="dateDisplay">---</div>
+                <div class="watermark-address" id="addressDisplay">---</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Separator Bar -->
+    <div class="separator-bar"></div>
+
+    <!-- Controls -->
+    <div class="controls-container">
+        <div class="mode-tabs">
+            <button class="mode-tab active" data-mode="clock">TIME IN&OUT</button>
+            <button class="mode-tab" data-mode="break">BREAK IN&OUT</button>
+            <div class="tab-indicator" id="tabIndicator"></div>
+        </div>
+
+        <div class="input-group">
+            <select id="branchSelect">
+                <option value="">-- Select Branch --</option>
+                <option value="Tondo-Main">Tondo Main</option>
+                <option value="Masangkay">Masangkay</option>
+            </select>
+            <input type="text" id="employeeName" placeholder="Enter Employee Name" autocomplete="off">
+        </div>
+
+        <div class="shutter-row">
+            <button class="shutter-btn" id="capture-btn">
+                <div class="shutter-inner"></div>
+            </button>
+        </div>
+    </div>
+
+    <canvas class="canvas" id="canvas"></canvas>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
+
+    <script>
+        const { initializeApp } = firebase;
+        const { getStorage, ref: sRef, uploadString, getDownloadURL } = firebase.storage;
+        const { getDatabase, ref: dRef, set } = firebase.database;
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA9P-8cAkJOPKCMoDKvQfIOPRRj6sU2rIk",
+            authDomain: "kingsbakeshopdatabase.firebaseapp.com",
+            projectId: "kingsbakeshopdatabase",
+            storageBucket: "kingsbakeshopdatabase.firebasestorage.app",
+            databaseURL: "https://kingsbakeshopdatabase-default-rtdb.firebaseio.com",
+            appId: "1:256940044664:web:abb651add27a4445ed188d"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const storage = getStorage(app);
+        const database = getDatabase(app);
+
+        const video = document.getElementById('viewfinder');
+        const canvas = document.getElementById('canvas');
+        const status = document.getElementById('status');
+        const captureBtn = document.getElementById('capture-btn');
+        const flashOverlay = document.getElementById('flashOverlay');
+
+        const modeBadge = document.getElementById('modeBadge');
+        const timeBadge = document.getElementById('timeBadge');
+        const dateDisplay = document.getElementById('dateDisplay');
+        const addressDisplay = document.getElementById('addressDisplay');
+        const zoomIndicator = document.getElementById('zoomIndicator');
+
+        let currentGPS = "Acquiring...";
+        let fullAddress = "Fetching Address...";
+        let currentMode = 'clock';
+        let currentClockMode = 'CLOCK IN';
+        let stream = null;
+        let currentZoom = 1.0;
+
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            timeBadge.textContent = timeStr;
+            dateDisplay.textContent = dateStr;
+        }
+
+        function updateTabIndicator() {
+            const activeTab = document.querySelector('.mode-tab.active');
+            const rect = activeTab.getBoundingClientRect();
+            const containerRect = document.querySelector('.mode-tabs').getBoundingClientRect();
+            const indicator = document.getElementById('tabIndicator');
+            indicator.style.left = (rect.left - containerRect.left + rect.width / 2 - 15) + 'px';
+        }
+
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentMode = tab.dataset.mode;
+                updateTabIndicator();
+            });
+        });
+
+        document.querySelectorAll('.zoom-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.zoom-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const zoom = btn.dataset.zoom;
+                zoomIndicator.textContent = zoom.includes('x') ? zoom : zoom + 'x';
+                currentZoom = parseFloat(zoom);
+            });
+        });
+
+        let flashOn = false;
+        document.getElementById('flashBtn').addEventListener('click', () => {
+            flashOn = !flashOn;
+            document.getElementById('flashBtn').innerHTML = flashOn ? '&#9723;' : '&#9724;';
+            if (stream) {
+                const track = stream.getVideoTracks()[0];
+                if (track.getCapabilities().torch) {
+                    track.applyConstraints({ advanced: [{ torch: flashOn }] });
+                }
+            }
+        });
+
+        async function startSystem() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", zoom: true } 
+                });
+                video.srcObject = stream;
+
+                navigator.geolocation.watchPosition(async (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    currentGPS = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
                         const data = await res.json();
                         fullAddress = data.display_name;
                         addressDisplay.textContent = fullAddress.split(',').slice(0, 4).join(', ');
