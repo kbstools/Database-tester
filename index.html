@@ -355,6 +355,160 @@
         .flash-overlay.active {
             opacity: 0.8;
         }
+
+        /* Sidebar Styles */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            display: none;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: -320px;
+            width: 320px;
+            height: 100%;
+            background: white;
+            z-index: 201;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar.active {
+            right: 0;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            background: #5dade2;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .sidebar-search {
+            padding: 10px 15px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .sidebar-search input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .add-employee {
+            padding: 10px 15px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .add-employee input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .add-employee button {
+            padding: 10px 15px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .employee-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .employee-item {
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .employee-item:hover {
+            background: #e0e0e0;
+        }
+
+        .employee-item .delete-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 14px;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .employee-item .delete-btn:hover {
+            opacity: 1;
+        }
+
+        /* Employee Select Button */
+        .employee-select-btn {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #5dade2;
+            border-radius: 8px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+            text-align: left;
+            color: #333;
+        }
+
+        .employee-select-btn span {
+            color: #999;
+        }
+
+        .employee-select-btn.selected {
+            border-color: #27ae60;
+            background: #f0fff4;
+        }
     </style>
 </head>
 <body>
@@ -405,10 +559,37 @@
         <div class="input-group">
             <select id="branchSelect">
                 <option value="">-- Select Branch --</option>
-                <option value="Tondo-Main">Tondo Main</option>
-                <option value="Masangkay">Masangkay</option>
+                <option value="168M">168M</option>
+                <option value="22B">22B</option>
+                <option value="999M">999M</option>
+                <option value="DM1">DM1</option>
+                <option value="DM2">DM2</option>
+                <option value="LCM">LCM</option>
+                <option value="MCS">MCS</option>
+                <option value="MTP">MTP</option>
+                <option value="PGR">PGR</option>
+                <option value="VMP">VMP</option>
+                <option value="BDM">BDM</option>
+                <option value="BTZ">BTZ</option>
+                <option value="SLP">SLP</option>
+                <option value="ASJ">ASJ</option>
+                <option value="MLT">MLT</option>
+                <option value="PGV">PGV</option>
+                <option value="KHV">KHV</option>
+                <option value="CGS">CGS</option>
+                <option value="JL">JL</option>
+                <option value="NBB">NBB</option>
+                <option value="PLZ">PLZ</option>
+                <option value="RET">RET</option>
+                <option value="TYM">TYM</option>
+                <option value="PSG">PSG</option>
+                <option value="PITX">PITX</option>
+                <option value="SMS">SMS</option>
+                <option value="MN">MN</option>
             </select>
-            <input type="text" id="employeeName" placeholder="Enter Employee Name" autocomplete="off">
+            <button class="employee-select-btn" id="employeeSelectBtn" onclick="openSidebar()">
+                <span>Select Employee</span>
+            </button>
         </div>
 
         <div class="mode-buttons">
@@ -423,6 +604,23 @@
                 <div class="shutter-inner"></div>
             </button>
         </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Employee List</h3>
+            <button class="close-btn" onclick="closeSidebar()">&times;</button>
+        </div>
+        <div class="sidebar-search">
+            <input type="text" id="searchInput" placeholder="Search employees..." oninput="filterEmployees()">
+        </div>
+        <div class="add-employee">
+            <input type="text" id="newEmployeeInput" placeholder="New employee name">
+            <button onclick="addEmployee()">Add</button>
+        </div>
+        <div class="employee-list" id="employeeList"></div>
     </div>
 
     <canvas class="canvas" id="canvas"></canvas>
@@ -578,10 +776,10 @@
 
         captureBtn.addEventListener('click', async () => {
             const branch = document.getElementById('branchSelect').value;
-            const empName = document.getElementById('employeeName').value;
+            const empName = selectedEmployee ? selectedEmployee.name : null;
 
             if (!branch || !empName) {
-                alert("Please select branch and enter employee name");
+                alert("Please select branch and employee");
                 return;
             }
 
@@ -671,6 +869,115 @@
         });
 
         startSystem();
+
+        let selectedEmployee = null;
+        let employees = [];
+
+        function openSidebar() {
+            document.getElementById('sidebar').classList.add('active');
+            document.getElementById('sidebarOverlay').classList.add('active');
+            loadEmployees();
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('active');
+            document.getElementById('sidebarOverlay').classList.remove('active');
+        }
+
+        function loadEmployees() {
+            const listRef = database.ref('Employees');
+            listRef.on('value', (snapshot) => {
+                employees = [];
+                const list = document.getElementById('employeeList');
+                list.innerHTML = '';
+                
+                if (!snapshot.exists()) {
+                    list.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">No employees yet. Add one above.</p>';
+                    return;
+                }
+                
+                snapshot.forEach((child) => {
+                    const emp = { id: child.key, name: child.val().name };
+                    employees.push(emp);
+                });
+                
+                renderEmployeeList(employees);
+            });
+        }
+
+        function renderEmployeeList(list) {
+            const listEl = document.getElementById('employeeList');
+            listEl.innerHTML = '';
+            
+            list.forEach((emp) => {
+                const div = document.createElement('div');
+                div.className = 'employee-item';
+                if (selectedEmployee && selectedEmployee.id === emp.id) {
+                    div.style.background = '#d4edda';
+                    div.style.borderLeft = '4px solid #27ae60';
+                }
+                div.innerHTML = `
+                    <span>${emp.name}</span>
+                    <button class="delete-btn" onclick="event.stopPropagation(); deleteEmployee('${emp.id}')">&times;</button>
+                `;
+                div.onclick = () => selectEmployee(emp);
+                listEl.appendChild(div);
+            });
+        }
+
+        function selectEmployee(emp) {
+            selectedEmployee = emp;
+            const btn = document.getElementById('employeeSelectBtn');
+            btn.innerHTML = `<strong>${emp.name}</strong>`;
+            btn.classList.add('selected');
+            closeSidebar();
+        }
+
+        function addEmployee() {
+            const input = document.getElementById('newEmployeeInput');
+            const name = input.value.trim();
+            
+            if (!name) {
+                alert('Please enter employee name');
+                return;
+            }
+            
+            const newRef = database.ref('Employees').push();
+            newRef.set({ name: name.toUpperCase() })
+                .then(() => {
+                    input.value = '';
+                    loadEmployees();
+                })
+                .catch((err) => {
+                    alert('Error adding employee: ' + err.message);
+                });
+        }
+
+        function deleteEmployee(id) {
+            if (!confirm('Delete this employee?')) return;
+            
+            database.ref('Employees/' + id).remove()
+                .then(() => {
+                    if (selectedEmployee && selectedEmployee.id === id) {
+                        selectedEmployee = null;
+                        const btn = document.getElementById('employeeSelectBtn');
+                        btn.innerHTML = '<span>Select Employee</span>';
+                        btn.classList.remove('selected');
+                    }
+                    loadEmployees();
+                })
+                .catch((err) => {
+                    alert('Error deleting: ' + err.message);
+                });
+        }
+
+        function filterEmployees() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = employees.filter(emp => 
+                emp.name.toLowerCase().includes(search)
+            );
+            renderEmployeeList(filtered);
+        }
     </script>
 </body>
 </html>
