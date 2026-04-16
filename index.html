@@ -713,6 +713,60 @@
             display: none;
         }
 
+        .timecard-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .timecard-table th {
+            background: #5dade2;
+            color: white;
+            padding: 8px 4px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .timecard-table th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+
+        .timecard-table th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+
+        .timecard-table td {
+            padding: 8px 4px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+            font-size: 11px;
+        }
+
+        .timecard-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .timecard-table tr:hover {
+            background: #e8f4f8;
+        }
+
+        .timecard-table .date-cell {
+            font-weight: 600;
+            text-align: left;
+            padding-left: 8px;
+        }
+
+        .timecard-table .time-cell {
+            font-weight: 500;
+        }
+
+        .time-cell.first { color: #27ae60; }
+        .time-cell.breakout { color: #f39c12; }
+        .time-cell.breakin { color: #3498db; }
+        .time-cell.finalout { color: #e74c3c; }
+        .time-cell.empty { color: #ccc; }
+
         .timecard-list.image-view .timecard-item {
             padding: 10px;
         }
@@ -1367,39 +1421,88 @@
             const list = document.getElementById('timecardList');
             list.innerHTML = '';
 
-            const grouped = {};
-            cards.forEach(card => {
-                const date = new Date(card.time);
-                const dateKey = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-                if (!grouped[dateKey]) grouped[dateKey] = [];
-                grouped[dateKey].push(card);
-            });
-
-            for (const dateKey in grouped) {
-                const dateDiv = document.createElement('div');
-                dateDiv.className = 'timecard-date-group';
-                dateDiv.innerHTML = `<div class="timecard-date-header">${dateKey}</div>`;
-
-                grouped[dateKey].forEach(card => {
-                    const time = new Date(card.time);
-                    const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            if (currentTimecardView === 'text') {
+                const grouped = {};
+                cards.forEach(card => {
+                    const date = new Date(card.time);
+                    const dateKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    if (!grouped[dateKey]) grouped[dateKey] = {};
+                    const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                     
-                    const modeClass = card.mode === 'FIRST IN' ? 'mode-first' : 
-                                     card.mode === 'BREAK OUT' ? 'mode-breakout' :
-                                     card.mode === 'BREAK IN' ? 'mode-breakin' : 'mode-final';
-
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'timecard-item';
-                    itemDiv.innerHTML = `
-                        <div class="mode ${modeClass}">${card.mode}</div>
-                        <div class="details">${timeStr}</div>
-                        <div class="branch">${card.branch}</div>
-                        ${card.imageUrl ? `<img src="${card.imageUrl}" alt="Photo" loading="lazy">` : ''}
-                    `;
-                    dateDiv.appendChild(itemDiv);
+                    if (card.mode === 'FIRST IN') grouped[dateKey].first = timeStr;
+                    else if (card.mode === 'BREAK OUT') grouped[dateKey].breakOut = timeStr;
+                    else if (card.mode === 'BREAK IN') grouped[dateKey].breakIn = timeStr;
+                    else if (card.mode === 'FINAL OUT') grouped[dateKey].final = timeStr;
                 });
 
-                list.appendChild(dateDiv);
+                if (Object.keys(grouped).length === 0) {
+                    list.innerHTML = '<div class="timecard-empty">No time records found</div>';
+                    return;
+                }
+
+                const table = document.createElement('table');
+                table.className = 'timecard-table';
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>DATE</th>
+                            <th>FIRST IN</th>
+                            <th>BREAK OUT</th>
+                            <th>BREAK IN</th>
+                            <th>FINAL OUT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)).map(dateKey => {
+                            const day = grouped[dateKey];
+                            return `
+                                <tr>
+                                    <td class="date-cell">${dateKey}</td>
+                                    <td class="time-cell first">${day.first || '-'}</td>
+                                    <td class="time-cell breakout">${day.breakOut || '-'}</td>
+                                    <td class="time-cell breakin">${day.breakIn || '-'}</td>
+                                    <td class="time-cell finalout">${day.final || '-'}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                `;
+                list.appendChild(table);
+            } else {
+                const grouped = {};
+                cards.forEach(card => {
+                    const date = new Date(card.time);
+                    const dateKey = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                    if (!grouped[dateKey]) grouped[dateKey] = [];
+                    grouped[dateKey].push(card);
+                });
+
+                for (const dateKey in grouped) {
+                    const dateDiv = document.createElement('div');
+                    dateDiv.className = 'timecard-date-group';
+                    dateDiv.innerHTML = `<div class="timecard-date-header">${dateKey}</div>`;
+
+                    grouped[dateKey].forEach(card => {
+                        const time = new Date(card.time);
+                        const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                        
+                        const modeClass = card.mode === 'FIRST IN' ? 'mode-first' : 
+                                         card.mode === 'BREAK OUT' ? 'mode-breakout' :
+                                         card.mode === 'BREAK IN' ? 'mode-breakin' : 'mode-final';
+
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'timecard-item';
+                        itemDiv.innerHTML = `
+                            <div class="mode ${modeClass}">${card.mode}</div>
+                            <div class="details">${timeStr}</div>
+                            <div class="branch">${card.branch}</div>
+                            ${card.imageUrl ? `<img src="${card.imageUrl}" alt="Photo" loading="lazy">` : ''}
+                        `;
+                        dateDiv.appendChild(itemDiv);
+                    });
+
+                    list.appendChild(dateDiv);
+                }
             }
         }
 
