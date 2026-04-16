@@ -1377,6 +1377,7 @@
             document.getElementById('viewTextBtn').classList.toggle('active', view === 'text');
             document.getElementById('viewImageBtn').classList.toggle('active', view === 'image');
             document.getElementById('timecardList').className = 'timecard-list ' + view + '-view';
+            renderTimecards(allTimecards);
         }
 
         function openTimecard() {
