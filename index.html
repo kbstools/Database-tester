@@ -678,6 +678,64 @@
             padding: 40px;
         }
 
+        .timecard-view-toggle {
+            padding: 10px 15px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .view-toggle-btn {
+            flex: 1;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .view-toggle-btn.active {
+            background: #5dade2;
+            color: white;
+            border-color: #5dade2;
+        }
+
+        .timecard-list.text-view .timecard-item {
+            padding: 15px;
+        }
+
+        .timecard-list.text-view .timecard-item img {
+            display: none;
+        }
+
+        .timecard-list.image-view .timecard-item {
+            padding: 10px;
+        }
+
+        .double-log-warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .double-log-warning .icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .double-log-warning .text {
+            font-size: 13px;
+            color: #856404;
+        }
+
         .header-right {
             display: flex;
             gap: 8px;
@@ -819,10 +877,18 @@
             <h3>My Timecard</h3>
             <button class="close-btn" onclick="closeTimecard()">&times;</button>
         </div>
+        <div class="timecard-view-toggle">
+            <button class="view-toggle-btn active" onclick="setTimecardView('text')" id="viewTextBtn">
+                &#9998; Text
+            </button>
+            <button class="view-toggle-btn" onclick="setTimecardView('image')" id="viewImageBtn">
+                &#128247; Image
+            </button>
+        </div>
         <div class="timecard-search">
             <input type="text" id="timecardSearch" placeholder="Search by date or branch..." oninput="filterTimecards()">
         </div>
-        <div class="timecard-list" id="timecardList"></div>
+        <div class="timecard-list text-view" id="timecardList"></div>
     </div>
 
     <!-- Confirm Popup -->
@@ -1014,6 +1080,21 @@
 
             if (!branch || !empName) {
                 alert("Please select branch and employee");
+                return;
+            }
+
+            status.innerText = "Checking records...";
+
+            const checkResult = await checkDoubleLog(empName, currentClockMode);
+            
+            if (checkResult.isDouble) {
+                const lastTime = checkResult.lastLog.time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                status.innerText = "ERROR: Already logged " + currentClockMode + " today at " + lastTime;
+                captureBtn.disabled = true;
+                setTimeout(() => {
+                    status.innerText = "Ready";
+                    captureBtn.disabled = false;
+                }, 3000);
                 return;
             }
 
@@ -1235,6 +1316,14 @@
         }
 
         let allTimecards = [];
+        let currentTimecardView = 'text';
+
+        function setTimecardView(view) {
+            currentTimecardView = view;
+            document.getElementById('viewTextBtn').classList.toggle('active', view === 'text');
+            document.getElementById('viewImageBtn').classList.toggle('active', view === 'image');
+            document.getElementById('timecardList').className = 'timecard-list ' + view + '-view';
+        }
 
         function openTimecard() {
             document.getElementById('timecardSidebar').classList.add('active');
@@ -1322,6 +1411,48 @@
                 card.mode.toLowerCase().includes(search)
             );
             renderTimecards(filtered);
+        }
+
+        async function checkDoubleLog(empName, mode) {
+            return new Promise((resolve) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+
+                database.ref('Logs')
+                    .orderByChild('employee')
+                    .equalTo(empName)
+                    .once('value')
+                    .then((snapshot) => {
+                        if (!snapshot.exists()) {
+                            resolve({ isDouble: false });
+                            return;
+                        }
+
+                        let foundDuplicate = false;
+                        let lastLog = null;
+
+                        snapshot.forEach((child) => {
+                            const log = child.val();
+                            const logTime = new Date(log.time);
+                            
+                            if (logTime >= today && logTime < tomorrow && log.mode === mode) {
+                                foundDuplicate = true;
+                                lastLog = { time: logTime, mode: log.mode };
+                            }
+                        });
+
+                        resolve({ 
+                            isDouble: foundDuplicate, 
+                            lastLog: lastLog,
+                            recentLogs: snapshot.exists() ? Array.from(snapshot).slice(0, 5).map(c => c.val()) : []
+                        });
+                    })
+                    .catch(() => {
+                        resolve({ isDouble: false });
+                    });
+            });
         }
     </script>
 </body>
